@@ -1,4 +1,4 @@
-use std::{process::{Command, Child}, fs};
+use std::{process::{Command, Child, Stdio}, fs, thread, io::{BufReader, BufRead}, str::FromStr};
 
 use regex::Regex;
 
@@ -14,17 +14,35 @@ fn main() {
         .map(|(_, [name, command])| (name, command))
         .collect();
 
-    let children: Vec<Child> = processes
+    let mut children: Vec<_> = processes
         .into_iter()
-        .map(|(_name, command)| {
-            Command::new("bash")
-                .args(["-c", command])
-                .spawn()
-                .expect("Failed to spawn child")
+        .map(|(name, command)| {
+            (String::from_str(name).unwrap(),
+             Command::new("bash")
+             .args(["-c", command])
+             .stdout(Stdio::piped())
+             .stderr(Stdio::piped())
+             .spawn()
+             .unwrap())
         })
         .collect();
 
-    for mut child in children {
+    for (name, child) in children.as_mut_slice() {
+        let mut stdout = BufReader::new(child.stdout.take().unwrap());
+        let name = name.clone();
+        thread::spawn(move || {
+            loop {
+                let mut line = String::new();
+                let len = stdout.read_line(&mut line).unwrap();
+                if len == 0 {
+                    return
+                }
+                println!("{name} | {}", line.trim_end());
+            }
+        });
+    }
+
+    for (_, mut child) in children {
         child.wait().unwrap();
     }
 }
