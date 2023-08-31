@@ -3,7 +3,7 @@ use std::fs;
 use std::thread;
 use std::process::{Command, Stdio};
 use std::error::Error;
-
+use colored::Colorize;
 use regex::Regex;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -19,6 +19,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         .collect();
 
     let name_max_length = processes.iter().fold(0, |acc, (name, _)| std::cmp::max(name.len(), acc));
+
+    let colors = vec!["red", "green", "yellow", "blue", "magenta", "cyan"];
+
+    let mut colors_iter = colors.into_iter().cycle();
 
     let exit_threads: Vec<_> = processes
         .iter()
@@ -37,6 +41,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             let name_padded2 = name_padded.clone();
             let name_padded3 = name_padded.clone();
 
+            let color = colors_iter.next().unwrap();
+
             thread::spawn(move || {
                 let mut line = String::new();
 
@@ -46,7 +52,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     if len == 0 {
                         break
                     }
-                    println!("{name_padded} | {}", line.trim_end());
+                    println!("{} {}", format!("{name_padded} |").color(color), line.trim_end());
                 }
             });
 
@@ -59,13 +65,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                     if len == 0 {
                         break
                     }
-                    println!("{name_padded2} | {}", line.trim_end());
+                    println!("{} {}", format!("{name_padded2} |").color(color), line.trim_end());
                 }
             });
 
             return thread::spawn(move || {
                 match child.wait() {
-                    Ok(status) => println!("{name_padded3} | exited with {status}"),
+                    Ok(status) => println!("{} exited with {status}", format!("{name_padded3} |").color(color)),
                     Err(_) => todo!(),
                 }
             });
